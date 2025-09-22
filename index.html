@@ -7,11 +7,11 @@
     
     <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
-    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <script src="https://unpkg.com/react-router-dom@6/umd/react-router-dom.development.js"></script>
     <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
-    
     <script src="https://unpkg.com/reactflow@11.10.1/dist/umd/index.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    
     <link rel="stylesheet" href="https://unpkg.com/reactflow@11.10.1/dist/style.css" />
     
     <style>
@@ -100,13 +100,6 @@
         </div>
     </div>
 
-    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
-    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
-    <script src="https://unpkg.com/react-router-dom@6/umd/react-router-dom.development.js"></script>
-    <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
-    <script src="https://unpkg.com/reactflow@11.10.1/dist/umd/index.js"></script>
-    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-
     <script type="text/babel">
         const { HashRouter, Routes, Route, Link, useNavigate, useParams, Navigate, useLocation } = ReactRouterDOM;
         const { useState, useEffect, useCallback, createContext, useContext } = React;
@@ -117,7 +110,7 @@
         const AuthProvider = ({ children }) => {
             const [token, setToken] = useState(localStorage.getItem('authToken'));
             const [loading, setLoading] = useState(true);
-            axios.defaults.baseURL = 'https://lead-tracker-api.vercel.app/api'; // URL de exemplo, troque pela sua
+            axios.defaults.baseURL = 'https://lead-tracker-api.vercel.app/api';
 
             useEffect(() => {
                 if (token) {
@@ -278,35 +271,73 @@
         
         // Definição dos tipos de nós (blocos)
         const nodeTypes = {
-            messageNode: ({ data, id }) => (
-                React.createElement('div', { className: 'react-flow__node' },
-                    React.createElement(Handle, { type: 'target', position: 'top' }),
-                    React.createElement('div', { style: { padding: '16px' } },
-                        React.createElement('h3', { style: { fontSize: '18px', fontWeight: 'bold' } }, data.label),
-                        React.createElement('p', { style: { marginTop: '8px' } }, data.message),
-                    ),
+            startNode: ({ data }) => (
+                React.createElement('div', { className: 'react-flow__node', style: { padding: '16px', background: 'var(--accent-green)' } },
+                    React.createElement('h3', { style: { fontSize: '18px', fontWeight: 'bold' } }, data.label),
                     React.createElement(Handle, { type: 'source', position: 'bottom' })
                 )
             ),
+            messageNode: ({ data, id }) => (
+                React.createElement('div', { className: 'react-flow__node', style: { width: '250px' } },
+                    React.createElement(Handle, { type: 'target', position: 'top' }),
+                    React.createElement('div', { style: { padding: '16px' } },
+                        React.createElement('h3', { style: { fontSize: '16px', fontWeight: 'bold' } }, 'Bloco de Mensagem'),
+                        React.createElement('p', { style: { marginTop: '8px' } }, data.content),
+                    ),
+                    React.createElement('div', { style: { marginTop: '8px', borderTop: '1px solid var(--bg-light)', padding: '8px' } },
+                        React.createElement('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' } },
+                            React.createElement('span', { style: { fontSize: '12px', color: 'var(--text-secondary)' } }, 'SE NÃO RESPONDER'),
+                            React.createElement(Handle, { type: 'source', position: 'right', id: 'timeout', style: { background: 'var(--accent-red)', top: 'auto', bottom: '25px' } })
+                        ),
+                        React.createElement('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center' } },
+                            React.createElement('span', { style: { fontSize: '12px', color: 'var(--text-secondary)' } }, 'SE RESPONDER'),
+                            React.createElement(Handle, { type: 'source', position: 'right', id: 'response', style: { background: 'var(--accent-green)', top: 'auto', bottom: '10px' } })
+                        )
+                    )
+                )
+            ),
+            apiNode: ({ data }) => (
+                React.createElement('div', { className: 'react-flow__node', style: { background: 'var(--accent-blue)', color: 'white', padding: '16px', width: '250px' } },
+                    React.createElement(Handle, { type: 'target', position: 'top' }),
+                    React.createElement('h3', { style: { fontWeight: 'bold' } }, data.label),
+                    React.createElement('p', { style: { fontSize: '14px', marginTop: '4px' } }, data.description),
+                    React.createElement(Handle, { type: 'source', position: 'bottom' })
+                )
+            )
         };
+        const edgeTypes = {
+            timeout: ({ ...props }) => React.createElement(ReactFlow.DefaultEdge, { ...props, className: 'is-timeout' })
+        };
+        
+        let id = 1;
+        const getId = () => `node_${id++}`;
 
         const FlowBuilderPage = () => {
             const { flowId } = useParams();
-            const [nodes, setNodes, onNodesChange] = useNodesState([]);
+            const [nodes, setNodes, onNodesChange] = useNodesState([
+                { id: getId(), type: 'startNode', position: { x: 250, y: 50 }, data: { label: 'Início do Fluxo' } }
+            ]);
             const [edges, setEdges, onEdgesChange] = useEdgesState([]);
-            const onConnect = useCallback((params) => setEdges((eds) => addEdge(params, eds)), [setEdges]);
+            const onConnect = useCallback((params) => {
+                const isTimeout = params.sourceHandle === 'timeout';
+                setEdges((eds) => addEdge({ ...params, type: isTimeout ? 'timeout' : 'default' }, eds));
+            }, [setEdges]);
+            
+            const onNodeDoubleClick = useCallback((event, node) => {
+                console.log('Double-click on node:', node);
+                // Aqui você abriria um modal de edição
+                // Por enquanto, apenas logamos a ação.
+            }, []);
             
             const addNode = (type) => {
                 const newNode = {
-                    id: `${Date.now()}`,
+                    id: getId(),
                     type,
-                    position: { x: 50, y: 50 },
-                    data: { label: 'Novo Bloco de Mensagem', message: 'Clique duas vezes para editar.' }
+                    position: { x: 50 + Math.random() * 400, y: 200 + Math.random() * 200 },
+                    data: type === 'messageNode' ? { content: 'Nova Mensagem' } : { label: 'Nova Ação', description: 'Descrição da Ação' }
                 };
                 setNodes((nds) => nds.concat(newNode));
             };
-
-            const addTextNode = () => addNode('messageNode');
             
             return (
                 React.createElement('div', { style: { width: '100%', height: 'calc(100vh - 64px)', border: '1px solid var(--bg-light)', borderRadius: '8px' } },
@@ -316,24 +347,35 @@
                         onNodesChange: onNodesChange,
                         onEdgesChange: onEdgesChange,
                         onConnect: onConnect,
+                        onNodeDoubleClick: onNodeDoubleClick,
                         nodeTypes: nodeTypes,
+                        edgeTypes: edgeTypes,
                         fitView: true
                     },
                         React.createElement(Background),
-                        React.createElement(Controls),
-                        React.createElement(MiniMap),
+                        React.createElement(Controls, {
+                            style: { right: '10px' }
+                        }),
+                        React.createElement(MiniMap, {
+                            nodeColor: (n) => {
+                                if (n.type === 'startNode') return 'var(--accent-green)';
+                                return 'var(--bg-light)';
+                            },
+                        }),
                     ),
                     React.createElement('div', {
                         style: {
                             position: 'absolute',
                             top: '10px',
-                            right: '10px',
+                            right: '70px',
                             zIndex: 10,
                             display: 'flex',
+                            flexDirection: 'column',
                             gap: '10px'
                         }
                     },
-                        React.createElement('button', { className: 'button button-blue', onClick: addTextNode }, 'Adicionar Bloco de Mensagem'),
+                        React.createElement('button', { className: 'button button-blue', onClick: () => addNode('messageNode') }, 'Mensagem'),
+                        React.createElement('button', { className: 'button button-blue', onClick: () => addNode('apiNode') }, 'Ação API'),
                     )
                 )
             );
